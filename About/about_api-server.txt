@@ -1,0 +1,24 @@
+cd api-server
+python3 main.py => 서버 열림 : 5000번 포트
+
+테스트해볼 수 있는 엔드포인트들 :
+
+# 헬스 체크 (JSON 응답)
+curl http://localhost:5000/
+
+# 노드 목록 조회
+curl http://localhost:5000/api/nodes
+
+# 파드 목록 조회  
+curl http://localhost:5000/api/pods
+
+# 네임스페이스 목록 조회
+curl http://localhost:5000/api/namespaces
+
+
+compute.py 덕에 API 가 더욱 스마트해졌음..
+
+자동 단위 변환 (밀리코어 → 코어, 바이트 → GB)
+시계열 데이터 압축으로 성능 최적화
+실시간 집계 계산으로 정확한 네임스페이스/배포 메트릭
+사용자 친화적 출력 포맷
