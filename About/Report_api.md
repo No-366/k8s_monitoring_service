@@ -4,8 +4,6 @@
 
 **Base URL**: `http://<NodeIP>:30500`  
 **예시**: `http://localhost:30500`  
-**Content-Type**: `application/json`  
-**인증**: 불필요 (개발/테스트 환경)  
 
 ## 🎯 구현된 API 엔드포인트 총괄
 
@@ -238,92 +236,4 @@ curl -X POST http://localhost:30500/api/nodes/code2-32201345/metrics \
 }
 ```
 
-## 🚀 배치 테스트 스크립트
 
-### **모든 GET API 한번에 테스트**
-```bash
-#!/bin/bash
-
-echo "=== k8s-monitor3 API 전체 테스트 ==="
-echo
-
-# Health Check
-echo "1. Health Check:"
-curl -s http://localhost:30500/ | head -5
-echo -e "\n"
-
-# 노드 APIs
-echo "2. 노드 APIs:"
-echo "  - 전체 노드 목록:"
-curl -s http://localhost:30500/api/nodes | head -3
-echo "  - 특정 노드:"
-curl -s http://localhost:30500/api/nodes/code2-32201345 | head -3
-echo -e "\n"
-
-# 파드 APIs
-echo "3. 파드 APIs:"
-echo "  - 전체 파드 목록:"
-curl -s http://localhost:30500/api/pods | head -3
-echo -e "\n"
-
-# 네임스페이스 APIs
-echo "4. 네임스페이스 APIs:"
-echo "  - 전체 네임스페이스:"
-curl -s http://localhost:30500/api/namespaces | head -3
-echo "  - default 네임스페이스:"
-curl -s http://localhost:30500/api/namespaces/default | head -3
-echo -e "\n"
-
-# 디플로이먼트 APIs
-echo "5. 디플로이먼트 APIs:"
-echo "  - default 네임스페이스 디플로이먼트:"
-curl -s http://localhost:30500/api/namespaces/default/deployments | head -3
-echo -e "\n"
-
-# 시계열 APIs
-echo "6. 시계열 APIs:"
-echo "  - 노드 시계열 (최근 5분):"
-curl -s "http://localhost:30500/api/nodes/code2-32201345/timeseries?window=300" | head -3
-echo -e "\n"
-
-echo "=== 테스트 완료 ==="
-```
-
-## 📝 테스트 체크리스트
-
-### **기본 기능 확인**
-- [ ] Health Check API 응답 확인
-- [ ] 전체 노드 목록 조회
-- [ ] 특정 노드 상세 정보 조회
-- [ ] 전체 파드 목록 조회
-- [ ] 전체 네임스페이스 목록 조회
-- [ ] 특정 네임스페이스 상세 정보 조회
-
-### **집계 기능 확인**
-- [ ] 네임스페이스별 디플로이먼트 목록
-- [ ] 특정 디플로이먼트 상세 정보
-- [ ] 노드별 파드 목록
-- [ ] 네임스페이스별 파드 목록
-- [ ] 디플로이먼트별 파드 목록
-
-### **시계열 기능 확인**
-- [ ] 노드 시계열 데이터 (다양한 window 값)
-- [ ] 파드 시계열 데이터
-- [ ] 네임스페이스 시계열 데이터
-- [ ] 디플로이먼트 시계열 데이터
-
-### **메트릭 저장 확인**
-- [ ] 노드 메트릭 POST 요청
-- [ ] 파드 메트릭 POST 요청
-- [ ] 잘못된 데이터 POST 시 에러 응답
-
-### **에러 처리 확인**
-- [ ] 존재하지 않는 리소스 조회 시 404 응답
-- [ ] 잘못된 JSON 형식 POST 시 400 응답
-- [ ] 필수 필드 누락 시 400 응답
-
----
-
-**API 문서 버전**: 1.0.0  
-**마지막 업데이트**: 2025-06-12 13:00 UTC  
-**테스트 환경**: k8s-monitor3 운영 환경

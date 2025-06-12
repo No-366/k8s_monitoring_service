@@ -24,8 +24,8 @@ class StorageService:
         self.latest_namespaces = {}
         self.latest_deployments = {}
         
-        # 초기 샘플 데이터 생성
-        self._create_sample_data()
+        # 초기 샘플 데이터 생성 (실제 데이터 사용을 위해 비활성화)
+        # self._create_sample_data()
     
     def _create_sample_data(self):
         """샘플 데이터 생성"""

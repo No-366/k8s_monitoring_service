@@ -142,15 +142,40 @@ class ResourceCollector:
                         'network_io': {'bytes_sent': 0, 'bytes_recv': 0}
                     }
                     
-                    # 실제 파드 리소스 수집은 복잡하므로 임시로 랜덤값 생성
-                    # 실제 구현에서는 cgroup이나 kubelet API를 사용해야 함
-                    import random
-                    pod_metric['cpu_millicores'] = random.randint(50, 500)
-                    pod_metric['memory_bytes'] = random.randint(50 * 1024 * 1024, 500 * 1024 * 1024)
-                    pod_metric['disk_io']['read_bytes'] = random.randint(1024, 10240)
-                    pod_metric['disk_io']['write_bytes'] = random.randint(1024, 10240)
-                    pod_metric['network_io']['bytes_sent'] = random.randint(1024, 10240)
-                    pod_metric['network_io']['bytes_recv'] = random.randint(1024, 10240)
+                    # 실제 파드 리소스 수집 (cgroup 기반)
+                    try:
+                        # 파드 UID와 컨테이너 ID 추출
+                        pod_uid = pod.metadata.uid.replace('-', '_')
+                        
+                        # 첫 번째 컨테이너의 리소스 사용량 수집
+                        if pod.status.container_statuses:
+                            container_id = pod.status.container_statuses[0].container_id
+                            if container_id and container_id.startswith('containerd://'):
+                                container_id = container_id.replace('containerd://', '')[:12]
+                                
+                                # cgroup 경로 찾기
+                                cgroup_path = PodResourceParser.get_pod_cgroup_path(pod_uid, container_id)
+                                
+                                if cgroup_path:
+                                    # 실제 메모리 사용량
+                                    pod_metric['memory_bytes'] = PodResourceParser.parse_pod_memory_usage(cgroup_path)
+                                    
+                                    # CPU 사용량은 노드 전체 대비 비율로 추정
+                                    # (정확한 파드별 CPU는 더 복잡한 구현 필요)
+                                    pod_metric['cpu_millicores'] = max(10, int(pod_metric['memory_bytes'] / (1024 * 1024 * 10)))  # 메모리 기반 추정
+                                
+                        # 디스크/네트워크 I/O는 노드 레벨에서 파드별 분할 (간단한 추정)
+                        # 실제로는 더 정교한 수집이 필요하지만, 현재는 기본값 사용
+                        pod_metric['disk_io']['read_bytes'] = 0
+                        pod_metric['disk_io']['write_bytes'] = 0
+                        pod_metric['network_io']['bytes_sent'] = 0
+                        pod_metric['network_io']['bytes_recv'] = 0
+                        
+                    except Exception as e:
+                        logger.warning(f"파드 {pod.metadata.name} 실제 리소스 수집 실패, 기본값 사용: {e}")
+                        # 실패 시 기본값
+                        pod_metric['cpu_millicores'] = 0
+                        pod_metric['memory_bytes'] = 0
                     
                     pod_metrics.append(pod_metric)
                     
