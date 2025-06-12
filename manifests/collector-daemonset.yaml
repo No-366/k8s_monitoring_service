@@ -68,7 +68,7 @@ spec:
             fieldRef:
               fieldPath: spec.nodeName
         - name: API_SERVER_URL
-          value: "http://api-server-service:5000"
+          value: "http://10.100.190.130:5000"
         - name: COLLECTION_INTERVAL
           value: "5"
         - name: LOG_LEVEL
@@ -105,13 +105,7 @@ spec:
           mountPath: /etc/hostname
           readOnly: true
         securityContext:
-          privileged: false
-          runAsNonRoot: true
-          runAsUser: 1000
-          readOnlyRootFilesystem: false
-          capabilities:
-            add:
-            - SYS_PTRACE
+          privileged: true
       volumes:
       - name: proc
         hostPath:
