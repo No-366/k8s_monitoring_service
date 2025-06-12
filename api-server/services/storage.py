@@ -31,25 +31,32 @@ class StorageService:
         """샘플 데이터 생성"""
         import random
         
+        # 여러 시점의 데이터를 생성하기 위한 시간 범위
+        base_time = datetime.now()
+        time_points = [base_time - timedelta(minutes=i*5) for i in range(12)]  # 1시간 동안 5분 간격
+        
         # 샘플 노드 데이터
         sample_nodes = ['node-1', 'node-2']
         for node in sample_nodes:
-            data = {
-                'node_name': node,
-                'timestamp': datetime.now().isoformat() + 'Z',
-                'cpu_millicores': random.randint(1500, 2500),
-                'memory_bytes': random.randint(3000000000, 5000000000),
-                'disk_io': {
-                    'read_bytes': random.randint(80000000, 120000000),
-                    'write_bytes': random.randint(300000000, 600000000)
-                },
-                'network_io': {
-                    'bytes_sent': random.randint(10000000, 30000000),
-                    'bytes_recv': random.randint(20000000, 40000000)
+            for time_point in time_points:
+                data = {
+                    'node_name': node,
+                    'timestamp': time_point.isoformat() + 'Z',
+                    'cpu_millicores': random.randint(1500, 2500),
+                    'memory_bytes': random.randint(3000000000, 5000000000),
+                    'disk_io': {
+                        'read_bytes': random.randint(80000000, 120000000),
+                        'write_bytes': random.randint(300000000, 600000000)
+                    },
+                    'network_io': {
+                        'bytes_sent': random.randint(10000000, 30000000),
+                        'bytes_recv': random.randint(20000000, 40000000)
+                    }
                 }
-            }
-            self.latest_nodes[node] = data
-            self.nodes_data[node].append(data.copy())
+                self.nodes_data[node].append(data.copy())
+            
+            # 최신 데이터는 가장 최근 시점으로 설정
+            self.latest_nodes[node] = list(self.nodes_data[node])[-1].copy()
         
         # 샘플 파드 데이터
         sample_pods = [
@@ -59,47 +66,57 @@ class StorageService:
         ]
         
         for pod in sample_pods:
-            data = {
-                'namespace': pod['namespace'],
-                'pod_name': pod['pod_name'],
-                'node_name': pod['node_name'],
-                'timestamp': datetime.now().isoformat() + 'Z',
-                'cpu_millicores': random.randint(200, 600),
-                'memory_bytes': random.randint(500000000, 1500000000),
-                'disk_io': {
-                    'read_bytes': random.randint(1000000, 5000000),
-                    'write_bytes': random.randint(500000, 3000000)
-                },
-                'network_io': {
-                    'bytes_sent': random.randint(100000, 500000),
-                    'bytes_recv': random.randint(200000, 800000)
-                }
-            }
             pod_key = f"{pod['namespace']}/{pod['pod_name']}"
-            self.latest_pods[pod_key] = data
-            self.pods_data[pod_key].append(data.copy())
+            for time_point in time_points:
+                data = {
+                    'namespace': pod['namespace'],
+                    'pod_name': pod['pod_name'],
+                    'node_name': pod['node_name'],
+                    'timestamp': time_point.isoformat() + 'Z',
+                    'cpu_millicores': random.randint(200, 600),
+                    'memory_bytes': random.randint(500000000, 1500000000),
+                    'disk_io': {
+                        'read_bytes': random.randint(1000000, 5000000),
+                        'write_bytes': random.randint(500000, 3000000)
+                    },
+                    'network_io': {
+                        'bytes_sent': random.randint(100000, 500000),
+                        'bytes_recv': random.randint(200000, 800000)
+                    }
+                }
+                self.pods_data[pod_key].append(data.copy())
+            
+            # 최신 데이터는 가장 최근 시점으로 설정
+            self.latest_pods[pod_key] = list(self.pods_data[pod_key])[-1].copy()
         
-        # 샘플 네임스페이스 데이터
+        # 샘플 네임스페이스 시계열 데이터 (파드들의 집계)
         sample_namespaces = ['default', 'monitoring']
         for ns in sample_namespaces:
-            data = {
-                'namespace': ns,
-                'timestamp': datetime.now().isoformat() + 'Z',
-                'cpu_millicores': random.randint(800, 1500),
-                'memory_bytes': random.randint(1000000000, 3000000000),
-                'disk_io': {
-                    'read_bytes': random.randint(500000, 2000000),
-                    'write_bytes': random.randint(1000000, 3000000)
-                },
-                'network_io': {
-                    'bytes_sent': random.randint(5000000, 15000000),
-                    'bytes_recv': random.randint(40000000, 90000000)
-                }
-            }
-            self.latest_namespaces[ns] = data
-            self.namespaces_data[ns].append(data.copy())
+            for time_point in time_points:
+                # 해당 시점의 네임스페이스 파드들 찾기
+                ns_pods_at_time = []
+                for pod_key, pod_data_list in self.pods_data.items():
+                    if pod_key.startswith(f"{ns}/"):
+                        # 해당 시점과 가장 가까운 데이터 찾기
+                        for pod_data in pod_data_list:
+                            if pod_data['timestamp'] == time_point.isoformat() + 'Z':
+                                ns_pods_at_time.append(pod_data)
+                                break
+                
+                if ns_pods_at_time:
+                    # 파드들의 메트릭 집계
+                    aggregated = metrics_computer.aggregate_pod_metrics(ns_pods_at_time)
+                    aggregated.update({
+                        'namespace': ns,
+                        'timestamp': time_point.isoformat() + 'Z'
+                    })
+                    self.namespaces_data[ns].append(aggregated)
+            
+            # 최신 데이터 설정
+            if self.namespaces_data[ns]:
+                self.latest_namespaces[ns] = list(self.namespaces_data[ns])[-1].copy()
         
-        # 샘플 디플로이먼트 데이터
+        # 샘플 디플로이먼트 시계열 데이터 (파드들의 집계)
         sample_deployments = [
             {'namespace': 'default', 'deployment_name': 'web-server'},
             {'namespace': 'default', 'deployment_name': 'app-backend'},
@@ -107,24 +124,32 @@ class StorageService:
         ]
         
         for deployment in sample_deployments:
-            data = {
-                'namespace': deployment['namespace'],
-                'deployment_name': deployment['deployment_name'],
-                'timestamp': datetime.now().isoformat() + 'Z',
-                'cpu_millicores': random.randint(400, 800),
-                'memory_bytes': random.randint(1000000000, 2500000000),
-                'disk_io': {
-                    'read_bytes': random.randint(2000000, 8000000),
-                    'write_bytes': random.randint(1000000, 4000000)
-                },
-                'network_io': {
-                    'bytes_sent': random.randint(500000, 1500000),
-                    'bytes_recv': random.randint(400000, 800000)
-                }
-            }
             deployment_key = f"{deployment['namespace']}/{deployment['deployment_name']}"
-            self.latest_deployments[deployment_key] = data
-            self.deployments_data[deployment_key].append(data.copy())
+            for time_point in time_points:
+                # 해당 시점의 디플로이먼트 파드들 찾기
+                deployment_pods_at_time = []
+                for pod_key, pod_data_list in self.pods_data.items():
+                    if (pod_key.startswith(f"{deployment['namespace']}/") and 
+                        deployment['deployment_name'] in pod_key):
+                        # 해당 시점과 가장 가까운 데이터 찾기
+                        for pod_data in pod_data_list:
+                            if pod_data['timestamp'] == time_point.isoformat() + 'Z':
+                                deployment_pods_at_time.append(pod_data)
+                                break
+                
+                if deployment_pods_at_time:
+                    # 파드들의 메트릭 집계
+                    aggregated = metrics_computer.aggregate_pod_metrics(deployment_pods_at_time)
+                    aggregated.update({
+                        'namespace': deployment['namespace'],
+                        'deployment_name': deployment['deployment_name'],
+                        'timestamp': time_point.isoformat() + 'Z'
+                    })
+                    self.deployments_data[deployment_key].append(aggregated)
+            
+            # 최신 데이터 설정
+            if self.deployments_data[deployment_key]:
+                self.latest_deployments[deployment_key] = list(self.deployments_data[deployment_key])[-1].copy()
     
     def get_all_nodes(self) -> List[Dict[str, Any]]:
         """모든 노드의 최신 데이터 조회"""
